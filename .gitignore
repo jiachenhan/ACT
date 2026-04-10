@@ -20,3 +20,5 @@ act/ipynb/fuzzing_results_vnnlib/*
 fuzzing_results_vnnlib/*
 
 *.log
+.venv/
+.claude/
