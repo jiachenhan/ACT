@@ -52,15 +52,6 @@ class TestDeviceManager(unittest.TestCase):
         self.assertTrue(str(device_manager.get_default_device()).startswith("mps"))
         self.assertEqual(device_manager.get_default_dtype(), torch.float32)
 
-    def test_initialize_apple_alias(self):
-        if not _mps_available():
-            self.skipTest("MPS not available")
-
-        device_manager.initialize_device(device="apple", dtype="float32")
-
-        self.assertTrue(str(device_manager.get_default_device()).startswith("mps"))
-        self.assertEqual(device_manager.get_default_dtype(), torch.float32)
-
     def test_initialize_cuda(self):
         if not _cuda_available():
             self.skipTest("CUDA not available")
@@ -79,7 +70,7 @@ class TestCliUtils(unittest.TestCase):
         device_action = next(action for action in parser._actions if action.dest == "device")
         self.assertEqual(
             set(device_action.choices or []),
-            {"cpu", "cuda", "mps", "gpu", "apple", "metal"},
+            {"cpu", "cuda", "mps", "gpu"},
         )
 
 

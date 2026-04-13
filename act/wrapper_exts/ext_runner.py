@@ -56,8 +56,8 @@ def get_parser():
                         help='Backend verification engine. "eran": ERAN external verifier, "abcrown": αβ-CROWN external verifier, "act": ACT torch-native abstraction framework')
     parser.add_argument('--method', type=str, default=None, 
                         help='Verification method. ERAN: [deepzono, refinezono, deeppoly, refinepoly], αβ-CROWN: [alpha, beta, alpha_beta], ACT-Native: [torch-native]')
-    parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda', 'mps', 'gpu', 'apple', 'metal'],
-                        help='Computation device (cpu, cuda, mps, gpu, apple, or metal). Aliases: gpu→cuda, apple/metal→mps')
+    parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda', 'mps', 'gpu'],
+                        help='Computation device (cpu, cuda, mps, or gpu). Alias: gpu→cuda')
     parser.add_argument('--dtype', type=str, default='float64', choices=['float32', 'float64'],
                         help='Default PyTorch data type (float32 or float64)')
     parser.add_argument('--solver', type=str, default='auto', 

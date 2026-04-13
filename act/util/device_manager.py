@@ -17,7 +17,7 @@ def initialize_device(device: str = 'cuda', dtype: str = 'float64') -> None:
     (e.g., in CLI main() after parsing arguments).
     
     Args:
-        device: Computation device - 'cpu', 'cuda', 'mps', 'gpu', 'apple', or 'metal'
+        device: Computation device - 'cpu', 'cuda', 'mps', or 'gpu'
         dtype: PyTorch data type - 'float32' or 'float64'
     
     Examples:
@@ -31,13 +31,10 @@ def initialize_device(device: str = 'cuda', dtype: str = 'float64') -> None:
     global _INITIALIZED
     
     try:
-        # Handle device aliases
+        # Handle device alias
         if device == 'gpu':
             device = 'cuda'
             print(f"🔄 Device alias: 'gpu' → 'cuda'")
-        elif device in ('apple', 'metal'):
-            print(f"🔄 Device alias: '{device}' → 'mps'")
-            device = 'mps'
 
         # Determine target device
         if device == 'cpu':
