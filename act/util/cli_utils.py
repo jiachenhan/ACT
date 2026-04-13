@@ -26,7 +26,7 @@ def add_device_args(parser: argparse.ArgumentParser) -> None:
     All CLIs should use this function to add device arguments, ensuring:
     - Consistent default values (cuda if available, else cpu)
     - Consistent argument names (--device, --dtype)
-    - Consistent choices (cpu/cuda/gpu, float32/float64)
+    - Consistent choices (cpu/cuda/mps/gpu/apple/metal, float32/float64)
     
     Args:
         parser: ArgumentParser to add arguments to
@@ -41,7 +41,7 @@ def add_device_args(parser: argparse.ArgumentParser) -> None:
         "--device",
         type=str,
         default='cuda' if torch.cuda.is_available() else 'cpu',
-        choices=['cpu', 'cuda', 'gpu'],
+        choices=['cpu', 'cuda', 'mps', 'gpu', 'apple', 'metal'],
         help="Device to use for computation (default: cuda if available, else cpu)"
     )
     parser.add_argument(
