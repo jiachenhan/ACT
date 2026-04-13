@@ -1,0 +1,59 @@
+name: ACT MPS Smoke (macOS)
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: act-mps-smoke-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mps-smoke:
+    name: MPS smoke e2e
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: 3.12
+          miniforge-variant: Miniforge3
+          use-mamba: true
+
+      - name: Install system dependencies
+        run: |
+          brew install gmp mpfr
+
+      - name: Free up disk space
+        run: |
+          conda clean --all --yes
+          df -h
+
+      - name: Set up ACT main environment
+        shell: bash -l {0}
+        run: |
+          cd modules/setup/
+          ACT_CI_MODE=true source setup.sh main
+
+      - name: Run minimal MPS smoke
+        shell: bash -l {0}
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          ACT_CI_MODE: "true"
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate act-main
+          cd ${{ github.workspace }}
+          python -m act.pipeline --verify act2torch --device mps --dtype float32
