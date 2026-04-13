@@ -47,7 +47,7 @@ setup_main() {
     # Step 3: Create and activate main environment (act-main)
     if ! conda env list | grep -q "^act-main "; then
         echo "[ACT] Creating conda env: act-main..."
-        conda create -y -n act-main python=3.9
+        conda create -y -n act-main python=3.12
     else
         echo "[ACT] Conda env 'act-main' already exists."
     fi

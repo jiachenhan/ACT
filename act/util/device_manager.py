@@ -32,36 +32,32 @@ def initialize_device(device: str = 'cuda', dtype: str = 'float64') -> None:
     
     try:
         # Handle device aliases
-        match device:
-            case 'gpu':
-                device = 'cuda'
-                print(f"🔄 Device alias: 'gpu' → 'cuda'")
-            case 'apple' | 'metal':
-                print(f"🔄 Device alias: '{device}' → 'mps'")
-                device = 'mps'
-            case _:
-                pass
+        if device == 'gpu':
+            device = 'cuda'
+            print(f"🔄 Device alias: 'gpu' → 'cuda'")
+        elif device in ('apple', 'metal'):
+            print(f"🔄 Device alias: '{device}' → 'mps'")
+            device = 'mps'
 
         # Determine target device
-        match device:
-            case 'cpu':
+        if device == 'cpu':
+            target_device = torch.device("cpu")
+        elif device == 'cuda':
+            if torch.cuda.is_available():
+                target_device = torch.device("cuda:0")
+            else:
                 target_device = torch.device("cpu")
-            case 'cuda':
-                if torch.cuda.is_available():
-                    target_device = torch.device("cuda:0")
-                else:
-                    target_device = torch.device("cpu")
-                    print(f"⚠️ CUDA not available, falling back to CPU")
-            case 'mps':
-                if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                    target_device = torch.device("mps")
-                else:
-                    target_device = torch.device("cpu")
-                    print(f"⚠️ MPS not available, falling back to CPU")
-            case _:
-                # Unknown device, default to CPU
+                print(f"⚠️ CUDA not available, falling back to CPU")
+        elif device == 'mps':
+            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                target_device = torch.device("mps")
+            else:
                 target_device = torch.device("cpu")
-                print(f"⚠️ Unknown device '{device}', using CPU")
+                print(f"⚠️ MPS not available, falling back to CPU")
+        else:
+            # Unknown device, default to CPU
+            target_device = torch.device("cpu")
+            print(f"⚠️ Unknown device '{device}', using CPU")
         
         # Determine target dtype
         if dtype == 'float32':
