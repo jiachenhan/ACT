@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 import torch
 
 class InKind:
@@ -28,21 +28,17 @@ class InputSpec:
     lb: Optional[torch.Tensor] = None
     ub: Optional[torch.Tensor] = None
     center: Optional[torch.Tensor] = None
-    eps: Optional[torch.Tensor] = None
+    eps: Optional[Union[torch.Tensor, float]] = None
     A: Optional[torch.Tensor] = None
     b: Optional[torch.Tensor] = None
     
     def __post_init__(self):
-        """Ensure all numeric fields are tensors for architecture."""
-        # Convert eps (scalar → 1-D tensor)
-        if self.eps is not None and not isinstance(self.eps, torch.Tensor):
-            self.eps = torch.tensor([float(self.eps)], dtype=torch.get_default_dtype())
-        
-        # Convert d (scalar → 1-D tensor)
-        if hasattr(self, 'd') and self.d is not None and not isinstance(self.d, torch.Tensor):
-            self.d = torch.tensor([float(self.d)], dtype=torch.get_default_dtype())
-        
-        # Convert lb, ub, center (list or scalar → tensor)
+        """Ensure all tensors share the same device and dtype.
+
+        eps is created after center/lb/ub so its device and dtype can follow
+        the reference tensor, preventing device/dtype mismatches on MPS or CUDA.
+        """
+        # Convert lb, ub, center first — they define the reference device/dtype.
         for field in ['lb', 'ub', 'center']:
             val = getattr(self, field, None)
             if val is not None and not isinstance(val, torch.Tensor):
@@ -50,7 +46,26 @@ class InputSpec:
                     setattr(self, field, torch.tensor(val, dtype=torch.get_default_dtype()))
                 else:
                     setattr(self, field, torch.tensor([float(val)], dtype=torch.get_default_dtype()))
-        
+
+        # Infer device and dtype from the first available spatial tensor.
+        _ref = next(
+            (t for t in [self.center, self.lb, self.ub] if isinstance(t, torch.Tensor)),
+            None,
+        )
+        _device = _ref.device if _ref is not None else torch.device('cpu')
+        _dtype  = _ref.dtype  if _ref is not None else torch.get_default_dtype()
+
+        # Convert eps using the inferred device+dtype to ensure arithmetic compatibility.
+        if self.eps is not None and not isinstance(self.eps, torch.Tensor):
+            self.eps = torch.tensor([float(self.eps)], dtype=_dtype, device=_device)
+        elif isinstance(self.eps, torch.Tensor):
+            if self.eps.device != _device or self.eps.dtype != _dtype:
+                self.eps = self.eps.to(device=_device, dtype=_dtype)
+
+        # Convert d (scalar → 1-D tensor)
+        if hasattr(self, 'd') and self.d is not None and not isinstance(self.d, torch.Tensor):
+            self.d = torch.tensor([float(self.d)], dtype=torch.get_default_dtype())
+
         # Convert A, b (list → tensor, keep None as is)
         for field in ['A', 'b']:
             val = getattr(self, field, None)
