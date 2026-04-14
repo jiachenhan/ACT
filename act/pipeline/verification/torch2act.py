@@ -45,6 +45,7 @@
 #===---------------------------------------------------------------------===#
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import torch
 import torch.nn as nn
@@ -1001,6 +1002,7 @@ def main():
     # Initialize debug file (GUARDED)
     if PerformanceOptions.debug_tf:
         debug_file = PerformanceOptions.debug_output_file
+        Path(debug_file).parent.mkdir(parents=True, exist_ok=True)
         with open(debug_file, 'w') as f:
             f.write(f"ACT Torch2ACT Conversion Debug Log\n")
             f.write(f"{'='*80}\n\n")
