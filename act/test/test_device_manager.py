@@ -74,7 +74,85 @@ class TestCliUtils(unittest.TestCase):
         )
 
 
-class TestMpsEndToEnd(unittest.TestCase):
+class TestInputSpecDeviceConsistency(unittest.TestCase):
+    """Regression tests for InputSpec device/dtype consistency.
+
+    Bug location: act/front_end/specs.py — InputSpec.__post_init__
+    When converting a scalar eps to a tensor, the original code called:
+        torch.tensor([float(self.eps)], dtype=torch.get_default_dtype())
+    with no device argument, so eps always landed on CPU.  If center/lb/ub
+    were already on MPS or CUDA (as placed by a data loader), the arithmetic
+    ``center - eps`` raised:
+        RuntimeError: Expected all tensors to be on the same device
+
+    A secondary issue: if the global default dtype is float64 but center is
+    float32 (required on MPS), the mismatch also causes a dtype error.
+
+    Fix: infer device and dtype from the first available spatial tensor
+    (center > lb > ub) before creating eps.
+    """
+
+    def _check_eps_matches(self, spec, device: torch.device) -> None:
+        """Assert eps is a Tensor on the expected device with dtype matching center."""
+        self.assertIsInstance(spec.eps, torch.Tensor)
+        assert isinstance(spec.eps, torch.Tensor)  # narrow for Pylance
+        self.assertEqual(spec.eps.device.type, device.type,
+                         f"eps device {spec.eps.device} != expected {device}")
+        if isinstance(spec.center, torch.Tensor):
+            self.assertEqual(spec.eps.dtype, spec.center.dtype,
+                             f"eps dtype {spec.eps.dtype} != center dtype {spec.center.dtype}")
+
+    def test_cpu_eps_stays_on_cpu(self):
+        """Baseline: CPU-only InputSpec must remain on CPU."""
+        from act.front_end.specs import InputSpec, InKind
+        center = torch.zeros(1, 4)
+        spec = InputSpec(kind=InKind.LINF_BALL, center=center, eps=0.1)
+        self._check_eps_matches(spec, torch.device('cpu'))
+        assert isinstance(spec.center, torch.Tensor) and isinstance(spec.eps, torch.Tensor)
+        _ = spec.center - spec.eps
+
+    def test_mps_eps_follows_center_device(self):
+        """MPS: scalar eps must land on mps, not cpu, when center is on mps."""
+        if not _mps_available():
+            self.skipTest("MPS not available")
+        from act.front_end.specs import InputSpec, InKind
+        center = torch.zeros(1, 4, device='mps', dtype=torch.float32)
+        spec = InputSpec(kind=InKind.LINF_BALL, center=center, eps=0.1)
+        self._check_eps_matches(spec, torch.device('mps'))
+        assert isinstance(spec.center, torch.Tensor) and isinstance(spec.eps, torch.Tensor)
+        # This was the line that raised RuntimeError before the fix
+        _ = spec.center - spec.eps
+
+    def test_mps_eps_dtype_matches_center(self):
+        """MPS: eps dtype must match center dtype (float32) even if default is float64."""
+        if not _mps_available():
+            self.skipTest("MPS not available")
+        from act.front_end.specs import InputSpec, InKind
+        orig_dtype = torch.get_default_dtype()
+        try:
+            torch.set_default_dtype(torch.float64)
+            center = torch.zeros(1, 4, device='mps', dtype=torch.float32)
+            spec = InputSpec(kind=InKind.LINF_BALL, center=center, eps=0.1)
+            assert isinstance(spec.eps, torch.Tensor)
+            self.assertEqual(spec.eps.dtype, torch.float32)
+            assert isinstance(spec.center, torch.Tensor)
+            _ = spec.center - spec.eps
+        finally:
+            torch.set_default_dtype(orig_dtype)
+
+    def test_cuda_eps_follows_center_device(self):
+        """CUDA: same device-consistency requirement as MPS."""
+        if not _cuda_available():
+            self.skipTest("CUDA not available")
+        from act.front_end.specs import InputSpec, InKind
+        center = torch.zeros(1, 4, device='cuda', dtype=torch.float32)
+        spec = InputSpec(kind=InKind.LINF_BALL, center=center, eps=0.1)
+        self._check_eps_matches(spec, torch.device('cuda'))
+        assert isinstance(spec.center, torch.Tensor) and isinstance(spec.eps, torch.Tensor)
+        _ = spec.center - spec.eps
+
+
+
     """Minimal smoke tests that only validate MPS CLI viability."""
 
     @staticmethod
